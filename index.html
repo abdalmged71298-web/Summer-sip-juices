@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, minimum-scale=1, user-scalable=yes" />
+  <title>قائمة الطلبات - منيو كامل الشاشة مع أدوات تكبير</title>
+  <meta name="description" content="عرض المنيو كصورة بملء شاشة الجوال مع أدوات تكبير/تصغير وتحريك عبر أزرار، وسلة طلبات مصغرة." />
+  <style>
+    :root{ --accent:#000; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family: "Noto Naskh Arabic", Tahoma, Arial, sans-serif;background:#fff;color:#000;min-height:100vh;display:flex;flex-direction:column}
+
+    header{padding:8px 12px;background:transparent}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:36px;height:36px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#000;border:0}
+    h1{margin:0;font-size:15px}
+
+    /* تكبير قسم المنيو: نجعل المعاينة أكبر */
+    .menu-wrap{flex:1;display:block;background:#fff;margin:0;padding:0}
+    .preview-body{width:100%;height:calc(100vh - 140px);display:flex;align-items:center;justify-content:center;overflow:hidden; -webkit-overflow-scrolling:touch; touch-action:none; position:relative}
+    .preview-body img{max-width:none;width:auto;height:100%;object-fit:contain;display:block;will-change:transform;transform-origin:center center}
+    .preview-body iframe{width:100%;height:100%;border:0}
+
+    /* أدوات التكبير / التحريك ثابتة على الصورة */
+    .zoom-controls{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:8px;z-index:40}
+    .zoom-controls button{background:rgba(0,0,0,0.7);color:#fff;border:0;padding:8px;border-radius:8px;cursor:pointer;font-size:14px}
+    .pan-controls{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:8px;z-index:40}
+    .pan-grid{display:grid;grid-template-columns:repeat(3,36px);gap:6px}
+    .pan-grid button{background:rgba(0,0,0,0.6);color:#fff;border:0;padding:6px;border-radius:6px;cursor:pointer}
+
+    /* شريط الطلب: أصغر وأكثر حشورية */
+    .order-bar{position:sticky;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eee;padding:6px 8px;display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto}
+    .input-row{display:flex;gap:8px;align-items:center}
+    .field{flex:1}
+    input,select,button,textarea{font-family:inherit}
+    .field input,.field select{width:100%;padding:6px;border:1px solid #eee;border-radius:8px;font-size:14px}
+    textarea{width:100%;min-height:56px;padding:6px;border:1px solid #eee;border-radius:8px;font-size:13px}
+    .small{font-size:12px;color:#444}
+
+    /* قائمة العناصر المضافة مضغوطة */
+    .cart-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+    .cart-item{display:flex;align-items:center;gap:8px;border:1px solid #fafafa;padding:6px;border-radius:6px;background:#fff}
+    .item-info{flex:1;font-size:13px}
+    .item-controls{display:flex;gap:6px;align-items:center}
+    .ctrl-btn{background:#fff;border:1px solid #eee;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+    .x-btn{background:#ffecec;color:#900;border:1px solid #f4c; padding:4px 8px;border-radius:6px;font-size:13px}
+    .qty-row{display:flex;align-items:center;gap:6px}
+
+    .send-row{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+    .send-btn{background:#000;color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-size:15px}
+
+    @media (max-width:420px){ .preview-body{height:calc(100vh - 220px)} }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">م</div>
+      <div>
+        <h1>قائمة الطلبات- اضغط مرتين على المنيو للتكبير</h1>
+      </div>
+    </div>
+  </header>
+
+  <main class="menu-wrap">
+    <div class="preview-body" id="previewBody">
+      <div class="help">جاري محاولة تحميل الصورة...</div>
+      <!-- أدوات التكبير والتحريك -->
+      <div class="zoom-controls" id="zoomControls" style="display:none">
+        <button id="zoomIn">+</button>
+        <button id="zoomOut">−</button>
+        <button id="resetZoom">⟲</button>
+      </div>
+      <div class="pan-controls" id="panControls" style="display:none">
+        <div class="pan-grid">
+          <button data-pan="-1,-1">↖</button><button data-pan="0,-1">↑</button><button data-pan="1,-1">↗</button>
+          <button data-pan="-1,0">←</button><button data-pan="0,0">•</button><button data-pan="1,0">→</button>
+          <button data-pan="-1,1">↙</button><button data-pan="0,1">↓</button><button data-pan="1,1">↘</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="order-bar" id="orderBar">
+    <div class="input-row">
+      <div class="field">
+        <input id="itemName" placeholder="اسم الصنف (مثال: عصير منجاء )" />
+      </div>
+      <div style="width:120px">
+        <select id="size">
+          <option value="عادي">عادي</option>
+          <option value="وسط">وسط</option>
+          <option value="كبير">كبير</option>
+          <option value="عائلي">عائلي</option>
+        </select>
+      </div>
+      <div style="width:70px">
+        <button id="addItemBtn" class="ctrl-btn">تنزيل الطلب</button>
+      </div>
+    </div>
+
+    <div>
+      <textarea id="notes" placeholder="ملاحظات عامة للطلب (اختياري) مثل:زيادة البرودة او اي ملاحضة اخرى..."></textarea>
+    </div>
+
+    <div class="small">العناصر المضافة:</div>
+    <div class="cart-list" id="cartList"></div>
+
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="custName" placeholder="اسم المرسل (اختياري)" style="flex:1" />
+      <input id="eta" placeholder="وقت الوصول (اختياري)" style="width:120px" />
+    </div>
+
+    <div class="send-row">
+      <button id="sendWhatsBtn" class="send-btn">إرسال الطلب إلى واتسآب</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== إعدادات =====
+    const WHATSAPP_NUMBER = '966554087336';
+    const DRIVE_ID = '1e99U5h4BSKb2sOTi6DjvkL2eypm9piJv';
+    const driveImageUrl = 'https://drive.google.com/uc?export=view&id=' + DRIVE_ID;
+    const drivePreviewUrl = 'https://drive.google.com/file/d/' + DRIVE_ID + '/preview';
+
+    const previewBody = document.getElementById('previewBody');
+    const cartListEl = document.getElementById('cartList');
+    const zoomControls = document.getElementById('zoomControls');
+    const panControls = document.getElementById('panControls');
+
+    // سلة العناصر
+    let cart = [];
+
+    function renderCart(){
+      cartListEl.innerHTML = '';
+      cart.forEach((it, idx) => {
+        const div = document.createElement('div');
+        div.className = 'cart-item';
+        div.innerHTML = `
+          <div class="item-info">
+            <div style="font-weight:700">${idx+1}. ${escapeHtml(it.name)}</div>
+            <div class="small">الحجم: ${escapeHtml(it.size)} • الكمية: ${it.quantity}</div>
+            ${it.notes? `<div class="small">ملاحظات: ${escapeHtml(it.notes)}</div>` : ''}
+          </div>
+          <div class="item-controls">
+            <div class="qty-row">
+              <button class="ctrl-btn" data-action="minus" data-idx="${idx}">-</button>
+              <div class="small" style="min-width:26px;text-align:center">${it.quantity}</div>
+              <button class="ctrl-btn" data-action="plus" data-idx="${idx}">+</button>
+            </div>
+            <button class="x-btn" data-action="remove" data-idx="${idx}">حذف</button>
+          </div>
+        `;
+        cartListEl.appendChild(div);
+      });
+
+      // ربط أحداث الأزرار
+      cartListEl.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const action = btn.getAttribute('data-action');
+          const idx = Number(btn.getAttribute('data-idx'));
+          if(action === 'plus'){
+            cart[idx].quantity = Number(cart[idx].quantity) + 1;
+          } else if(action === 'minus'){
+            if(cart[idx].quantity > 1) cart[idx].quantity = Number(cart[idx].quantity) - 1;
+          } else if(action === 'remove'){
+            cart.splice(idx,1);
+          }
+          renderCart();
+        });
+      });
+    }
+
+    // إضافة عنصر
+    document.getElementById('addItemBtn').addEventListener('click', ()=>{
+      const name = document.getElementById('itemName').value.trim();
+      const size = document.getElementById('size').value;
+      const generalNotes = document.getElementById('notes').value.trim();
+      if(!name){ alert('يرجى كتابة اسم الصنف.'); return; }
+
+      cart.push({ name, quantity: 1, size, notes: '' });
+      renderCart();
+
+      document.getElementById('itemName').value = '';
+      document.getElementById('itemName').focus();
+    });
+
+    // إرسال الطلب إلى واتسآب
+    document.getElementById('sendWhatsBtn').addEventListener('click', ()=>{
+      if(cart.length === 0){ alert('لم تضف أي عناصر إلى الطلب.'); return; }
+      const name = document.getElementById('custName').value.trim();
+      const eta = document.getElementById('eta').value.trim();
+      const generalNotes = document.getElementById('notes').value.trim();
+
+      const lines = [];
+      lines.push('📦 *طلب جديد*');
+      if(name) lines.push('👤 اسم مستلم الطلب: ' + name);
+      if(eta) lines.push('⏰ الوقت المتوقع للوصول: ' + eta);
+      lines.push('');
+      lines.push('🧾 *تفاصيل الطلب*');
+      cart.forEach((it, idx)=>{
+        lines.push(`${idx+1}. ${it.name}`);
+        lines.push(`   - الكمية: ${it.quantity}    - الحجم: ${it.size}`);
+        if(it.notes) lines.push(`   - ملاحظات: ${it.notes}`);
+      });
+      if(generalNotes) { lines.push(''); lines.push('🔖 ملاحظات عامة: ' + generalNotes); }
+      lines.push('');
+      lines.push('📍 الرجاء تأكيد الطلب وشكرًا لكم.');
+
+      const message = lines.join('\n');
+      const encoded = encodeURIComponent(message);
+      const url = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encoded;
+      window.open(url, '_blank');
+    });
+
+    // تحميل الصورة من Drive ودعم التكبير عبر أزرار
+    function tryLoadAsImage(url){
+      return new Promise((resolve,reject)=>{
+        const img = new Image();
+        img.onload = ()=> resolve(img);
+        img.onerror = ()=> reject(new Error('not-an-image'));
+        img.src = url;
+      });
+    }
+
+    // متغيرات تحكم التكبير/التحريك
+    let imgEl = null;
+    let scale = 1.3; // نعرض الصورة مكبرة افتراضيًا
+    let translate = {x:0,y:0};
+    const ZOOM_STEP = 1.2; // مضاعف لكل نقرة +/
+    const PAN_STEP = 40; // عدد البيكسلات لكل نقرة سهم
+
+    function applyTransform(){ if(!imgEl) return; imgEl.style.transform = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`; }
+
+    function setupControls(){
+      zoomControls.style.display = 'flex';
+      panControls.style.display = 'block';
+
+      document.getElementById('zoomIn').addEventListener('click', ()=>{ scale = Math.min(5, scale * ZOOM_STEP); applyTransform(); });
+      document.getElementById('zoomOut').addEventListener('click', ()=>{ scale = Math.max(1, scale / ZOOM_STEP); translate = {x:0,y:0}; applyTransform(); });
+      document.getElementById('resetZoom').addEventListener('click', ()=>{ scale = 1.3; translate = {x:0,y:0}; applyTransform(); });
+
+      panControls.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const coords = btn.getAttribute('data-pan').split(',').map(Number);
+          // coords are -1/0/1; multiply by PAN_STEP and adjust by scale
+          translate.x += coords[0] * PAN_STEP;
+          translate.y += coords[1] * PAN_STEP;
+          applyTransform();
+        });
+      });
+
+      // دعم السحب باللمس (عند التكبير) داخل الصورة
+      let isDragging = false; let start = {x:0,y:0};
+      previewBody.addEventListener('touchstart', (e)=>{
+        if(e.touches.length === 1 && scale > 1){ isDragging = true; start = { x: e.touches[0].clientX - translate.x, y: e.touches[0].clientY - translate.y }; }
+      }, {passive:false});
+      previewBody.addEventListener('touchmove', (e)=>{
+        if(isDragging && e.touches.length===1){ e.preventDefault(); translate.x = e.touches[0].clientX - start.x; translate.y = e.touches[0].clientY - start.y; applyTransform(); }
+      }, {passive:false});
+      previewBody.addEventListener('touchend', ()=>{ isDragging = false; });
+    }
+
+    async function loadDriveFileWithButtons(){
+      previewBody.innerHTML = '<div class="help">جاري التحميل...</div>';
+      try{
+        const img = await tryLoadAsImage(driveImageUrl);
+        previewBody.innerHTML = '';
+        img.alt = 'قائمة المنيو';
+        img.style.width = 'auto';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.touchAction = 'none';
+        img.style.transform = `translate(${translate.x}px, ${translate.y}px) scale(${scale})`;
+        previewBody.appendChild(img);
+        imgEl = img;
+        setupControls();
+        return;
+      }catch(e){
+        // لو لم تكن صورة، عرض iframe معاينة (الأزرار مخفية)
+        previewBody.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.src = drivePreviewUrl;
+        iframe.title = 'معاينة ملف Drive';
+        iframe.loading = 'lazy';
+        previewBody.appendChild(iframe);
+      }
+    }
+
+    loadDriveFileWithButtons();
+
+    function escapeHtml(text){ return text.replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m]; }); }
+  </script>
+</body>
+</html>
